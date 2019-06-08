@@ -8124,7 +8124,7 @@ react-dev-utils@^9.0.1:
     strip-ansi "5.2.0"
     text-table "0.2.0"
 
-react-dom@16.8.6:
+react-dom@^16.8.6:
   version "16.8.6"
   resolved "https://registry.yarnpkg.com/react-dom/-/react-dom-16.8.6.tgz#71d6303f631e8b0097f56165ef608f051ff6e10f"
   integrity sha512-1nL7PIq9LTL3fthPqwkvr2zY7phIPjYrT0jp4HjyEQrEROnw4dG41VVwi/wfoCneoleqrNX7iAD+pXebJZwrwA==
@@ -8204,7 +8204,7 @@ react-scripts@3.0.1:
   optionalDependencies:
     fsevents "2.0.6"
 
-react@16.8.6:
+react@^16.8.6:
   version "16.8.6"
   resolved "https://registry.yarnpkg.com/react/-/react-16.8.6.tgz#ad6c3a9614fd3a4e9ef51117f54d888da01f2bbe"
   integrity sha512-pC0uMkhLaHm11ZSJULfOBqV4tIZkx87ZLvbbQYunNixAAvjnC+snJCg0XQXn9VIsttVsbZP/H/ewzgsd5fxKXw==
@@ -9419,6 +9419,11 @@ text-table@0.2.0, text-table@^0.2.0:
   version "0.2.0"
   resolved "https://registry.yarnpkg.com/text-table/-/text-table-0.2.0.tgz#7f5ee823ae805207c00af2df4a84ec3fcfa570b4"
   integrity sha1-f17oI66AUgfACvLfSoTsP8+lcLQ=
+
+thingy52_web_bluetooth@^1.5.2-transpiled:
+  version "1.5.2-transpiled"
+  resolved "https://registry.yarnpkg.com/thingy52_web_bluetooth/-/thingy52_web_bluetooth-1.5.2-transpiled.tgz#26546ad81cd9a1a7f61f7035aa5c6d85fc24da7d"
+  integrity sha512-rGxDtjN7tWLZB1jgKNajhw5fG/2hkxqRg6NjAst8N89Dy5fjl0CA+SSNfzEqZBaq3MUAyYEgQOJ1obdjH4ogJQ==
 
 throat@^4.0.0:
   version "4.1.0"
