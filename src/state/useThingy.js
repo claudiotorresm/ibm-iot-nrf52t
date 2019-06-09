@@ -30,17 +30,25 @@ export const UOM = {
 const hbPulses = [
   { mode: "oneshot", color: ONESHOT_PURPLE, intensity: 10 },
   //{ mode: "oneshot", color: ONESHOT_CYAN, intensity: 10 },
-  { mode: "off" },
+  { mode: "off" }
 ];
 
 const hbErrorPulse = { mode: "oneshot", color: ONESHOT_RED, intensity: 50 };
+
+const disconnectPulse = {
+  mode: "breathe",
+  color: "blue",
+  intensity: 30,
+  delay: 1000
+};
 
 const Ctx = createContext();
 
 export const ThingyProvider = ({ children }) => {
   const [thingy, setThingy] = useState();
   const [status, setStatus] = useState("DISCONNECTED");
-  const [sensors, handleSensorEvent] = useReducer(sensorReducer, { hb: 0 });
+  const [info, dispatchInfo] = useReducer(infoReducer, {});
+  const [sensors, dispatchSensorReading] = useReducer(sensorReducer, { hb: 0 });
   const [heartBeat, setHeartBeat] = useState(0);
   const [ticks, setTicks] = useState(0);
   const [error, setError] = useState();
@@ -76,30 +84,49 @@ export const ThingyProvider = ({ children }) => {
     if (await thingy.connect()) {
       // we have a thingy! set it up for use
 
+      dispatchInfo({ type: "serial", detail: { serial: thingy.device.id } });
+
+      thingy.firmware.read().then(({ firmware }) => {
+        const VERSIONS = process.env.REACT_APP_KNOWN_NRF_VERSIONS;
+        const knownVersions = VERSIONS.split("|");
+        if (!knownVersions.includes(firmware))
+          setError(`Old NRFT Firmware, Please Upgrade to ${knownVersions[0]}`);
+
+        dispatchInfo({
+          type: "firmware",
+          detail: { firmware }
+        });
+      });
+
+      thingy.name.read().then(({ name }) =>
+        dispatchInfo({
+          type: "name",
+          detail: { name }
+        })
+      );
+
+      thingy.cloudtoken.read().then(({ token }) =>
+        dispatchInfo({
+          type: "token",
+          detail: { token }
+        })
+      );
+
       [
-        "temperature",
-        "humidity",
-        "pressure",
-        "gas",
-        "heading",
-        "gravityvector"
+        "battery"
+        //"temperature",
+        //"humidity",
+        //"pressure",
+        //"gas",
+        //"heading",
+        //"gravityvector"
       ].forEach(serviceName => {
-        thingy.addEventListener(serviceName, handleSensorEvent);
+        thingy.addEventListener(serviceName, dispatchSensorReading);
         thingy[serviceName].start();
       });
 
-      thingy.addEventListener(
-        "gravityvector",
-        ({
-          detail: {
-            value: { x, y, z }
-          }
-        }) => {
-          // do something here...
-        }
-      );
-
       thingy.addEventListener("tap", ({ detail }) => {
+        // do something here!
         console.log(`Tap Detected: ${detail.direction} ${detail.count}`);
       });
       thingy.tap.start();
@@ -133,12 +160,30 @@ export const ThingyProvider = ({ children }) => {
 
   async function disconnect() {
     setStatus("DISCONNECTING");
+    await thingy.led.write(disconnectPulse); // restore LED state...
     await thingy.disconnect();
     setThingy();
-    handleSensorEvent({ type: "RESET" });
+    dispatchInfo({ type: "RESET" });
+    dispatchSensorReading({ type: "RESET" });
     setHeartBeat(0);
     setTicks(0);
     setStatus("DISCONNECTED");
+  }
+
+  async function setName(name) {
+    dispatchInfo({ type: "name", detail: { name } });
+  }
+
+  async function writeName() {
+    return (await info.name) && thingy.name.write(info.name);
+  }
+
+  async function setToken(token) {
+    dispatchInfo({ type: "token", detail: { token } });
+  }
+
+  async function writeToken() {
+    return await thingy.cloudtoken.write(info.token);
   }
 
   const value = {
@@ -146,13 +191,39 @@ export const ThingyProvider = ({ children }) => {
     status,
     connect,
     disconnect,
-    sensors
+    info,
+    sensors,
+    error,
+    setName,
+    writeName,
+    setToken,
+    writeToken
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 };
 
+function infoReducer(state, { type, detail }) {
+  switch (type) {
+    case "serial":
+    case "name":
+    case "firmware":
+    case "token":
+      // console.log(`"${type}": ${JSON.stringify(detail[type])}`);
+      return { ...state, [type]: detail[type] };
+
+    case "RESET":
+      return {};
+
+    default:
+      console.error(`unhandled info "${type}": ${JSON.stringify(detail)}`);
+      return { ...state };
+  }
+}
+
 function sensorReducer(state, { type, detail }) {
+  console.warn(`${type}: ${JSON.stringify(detail)}`);
+
   const hb = state.hb + 1;
   switch (type) {
     case "temperature":
@@ -176,7 +247,7 @@ function sensorReducer(state, { type, detail }) {
       return {
         ...state,
         hb,
-        heading: detail.status
+        battery: detail.status
       };
 
     case "heading":

@@ -3,7 +3,18 @@ import "./App.css";
 import useThingy from "./state/useThingy";
 
 function App() {
-  const { connect, disconnect, status, sensors } = useThingy();
+  const {
+    connect,
+    disconnect,
+    status,
+    sensors,
+    info,
+    setName,
+    setToken,
+    writeName,
+    writeToken,
+    error
+  } = useThingy();
 
   return (
     <div className="App">
@@ -19,8 +30,28 @@ function App() {
         <br />
         <br />
         {status}
+        {error && <div style={{ color: "red" }}>{error}</div>}
       </header>
-      <pre>{JSON.stringify(sensors,null,4)}</pre>
+      {typeof info.name === "string" && (
+        <div>
+          <input value={info.name} onChange={ev => setName(ev.target.value)} />
+          <button onClick={writeName} disabled={!info.name}>
+            Write
+          </button>
+        </div>
+      )}
+      {typeof info.token === "string" && (
+        <div>
+          <input value={info.token} onChange={ev => setToken(ev.target.value)} />
+          <button onClick={writeToken}>
+            Write
+          </button>
+        </div>
+      )}
+      <h3>Device Info</h3>
+      <pre>{JSON.stringify(info, null, 4)}</pre>
+      <h3>Sensors</h3>
+      <pre>{JSON.stringify(sensors, null, 4)}</pre>
     </div>
   );
 }
