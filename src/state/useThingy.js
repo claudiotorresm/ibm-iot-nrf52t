@@ -51,30 +51,9 @@ export const ThingyProvider = ({ children }) => {
   const [sensors, dispatchSensorReading] = useReducer(sensorReducer, { hb: 0 });
   const [heartBeat, setHeartBeat] = useState(0);
   const [ticks, setTicks] = useState(0);
-  const [error, setError] = useState();
   const [buttonPressed, setButtonPressed] = useState();
-
-  useInterval(() => {
-    if (thingy) {
-      if (heartBeat && heartBeat === sensors.hb) {
-        console.warn("NRF52T has disconnected or moved out of range");
-        return disconnect();
-      }
-
-      if (sensors.orientation === 1) {
-        setError("maintenance required");
-        thingy.speakerdata.write(SPEAKER_SIREN);
-      }
-
-      if (!buttonPressed) {
-        thingy.led.write(
-          error ? hbErrorPulse : hbPulses[ticks % hbPulses.length]
-        );
-      }
-      setTicks(ticks + 1);
-      setHeartBeat(sensors.hb);
-    }
-  }, 1000);
+  const [error, setError] = useState();
+  const [warning, setWarning] = useState();
 
   async function connect() {
     // create a new thingy
@@ -83,6 +62,8 @@ export const ThingyProvider = ({ children }) => {
     setStatus("CONNECTING");
     if (await thingy.connect()) {
       // we have a thingy! set it up for use
+
+      setStatus("INTEROGATION");
 
       dispatchInfo({ type: "serial", detail: { serial: thingy.device.id } });
 
@@ -113,13 +94,13 @@ export const ThingyProvider = ({ children }) => {
       );
 
       [
-        "battery"
-        //"temperature",
-        //"humidity",
-        //"pressure",
-        //"gas",
-        //"heading",
-        //"gravityvector"
+        "battery",
+        "temperature",
+        "humidity",
+        "pressure",
+        "gas",
+        "heading",
+        "gravityvector"
       ].forEach(serviceName => {
         thingy.addEventListener(serviceName, dispatchSensorReading);
         thingy[serviceName].start();
@@ -167,15 +148,45 @@ export const ThingyProvider = ({ children }) => {
     dispatchSensorReading({ type: "RESET" });
     setHeartBeat(0);
     setTicks(0);
+    setError();
+    setWarning();
     setStatus("DISCONNECTED");
   }
+
+  useInterval(() => {
+    if (thingy) {
+      // Health Check - Did we loose the thingy?
+      if (heartBeat && heartBeat === sensors.hb) {
+        console.warn("NRF52T has disconnected or moved out of range");
+        return disconnect();
+      }
+
+      // force an error if the thingy is upsidedown
+      if (sensors.orientation === 1) {
+        setError("maintenance required");
+        thingy.speakerdata.write(SPEAKER_SIREN);
+      }
+
+      // only update the LED if the user isn't pressing a button
+      if (!buttonPressed) {
+        thingy.led.write(
+          error ? hbErrorPulse : hbPulses[ticks % hbPulses.length]
+        );
+      }
+
+      // maintain connection state
+      setTicks(ticks + 1);
+      setHeartBeat(sensors.hb);
+    }
+  }, 1000);
 
   async function setName(name) {
     dispatchInfo({ type: "name", detail: { name } });
   }
 
+  // writeName() - only write a non-empty name back to the thingy
   async function writeName() {
-    return (await info.name) && thingy.name.write(info.name);
+    return await (info.name && thingy.name.write(info.name));
   }
 
   async function setToken(token) {
@@ -194,6 +205,7 @@ export const ThingyProvider = ({ children }) => {
     info,
     sensors,
     error,
+    warning,
     setName,
     writeName,
     setToken,
@@ -222,7 +234,8 @@ function infoReducer(state, { type, detail }) {
 }
 
 function sensorReducer(state, { type, detail }) {
-  console.warn(`${type}: ${JSON.stringify(detail)}`);
+
+  // console.warn(`${type}: ${JSON.stringify(detail)}`);
 
   const hb = state.hb + 1;
   switch (type) {
