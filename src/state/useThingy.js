@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useReducer } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useReducer,
+  //useEffect
+} from "react";
 import Thingy from "thingy52_web_bluetooth";
 import useInterval from "./useInterval";
 import useIotp from "./useIotp";
@@ -7,6 +13,7 @@ const DEBUG = !!parseInt(process.env.REACT_APP_DEBUG_NRF_CONNECTION);
 
 // How often should we publish sensor readings? (default 5 secs)
 const publishInterval = parseInt(process.env.REACT_APP_IOTP_PUBLISH) || 5000;
+
 if (DEBUG) console.log(`Publish Interval: ${publishInterval} ms`);
 
 export const [
@@ -31,6 +38,7 @@ export const UOM = {
   co2: "ppm",
   voc: "ppb",
   heading: "°",
+  vibration: "times",
   orientation: "side (facing down)"
 };
 
@@ -56,13 +64,15 @@ const defaultInfo = {
   token: undefined
 };
 
+const defaultSensors = { hb: 0, vibration: 0, battery: 38 };
+
 const Ctx = createContext();
 
 export const ThingyProvider = ({ children }) => {
   const [thingy, setThingy] = useState();
   const [status, setStatus] = useState("DISCONNECTED");
   const [info, setInfo] = useReducer(infoReducer, defaultInfo);
-  const [sensors, dispatchSensorReading] = useReducer(sensorReducer, { hb: 0 });
+  const [sensors, dispatchSensorReading] = useReducer(sensorReducer, { ...defaultSensors });
   const [heartBeat, setHeartBeat] = useState(0);
   const [ticks, setTicks] = useState(0);
   const [buttonPressed, setButtonPressed] = useState();
@@ -98,8 +108,6 @@ export const ThingyProvider = ({ children }) => {
         authToken: serial
       });
 
-      console.log(iotp);
-
       thingy.firmware.read().then(({ firmware }) => {
         const VERSIONS = process.env.REACT_APP_KNOWN_NRF_VERSIONS;
         const knownVersions = VERSIONS.split("|");
@@ -118,22 +126,12 @@ export const ThingyProvider = ({ children }) => {
         "pressure",
         "gas",
         "heading",
-        "gravityvector"
+        "gravityvector",
+        "tap"
       ].forEach(serviceName => {
         thingy.addEventListener(serviceName, dispatchSensorReading);
         thingy[serviceName].start();
       });
-
-      thingy.addEventListener("tap", ({ detail }) => {
-        //if (client) {
-          //publish(detail, "vibration");
-          if (DEBUG) {
-            console.log(`Tap Detected: ${detail.direction} ${detail.count}`);
-            if (!client) console.warn("no client for tap");
-          }
-        //}
-      });
-      thingy.tap.start();
 
       thingy.addEventListener("button", ({ detail: { value } }) => {
         if (value) {
@@ -152,7 +150,7 @@ export const ThingyProvider = ({ children }) => {
       // set up the speaker
       await thingy.soundconfiguration.write({ speakerMode: 3 });
       setTimeout(() => {
-        thingy.speakerdata.write(SPEAKER_DING);
+        thingy.speakerdata.write( iotp ? SPEAKER_DING : SPEAKER_BEEP );
       }, 100);
 
       setStatus("CONNECTED");
@@ -168,13 +166,20 @@ export const ThingyProvider = ({ children }) => {
     await thingy.disconnect();
     setThingy();
     setInfo(defaultInfo);
-    dispatchSensorReading({ type: "RESET" });
+    dispatchSensorReading({ type: "RESET-ALL" });
     setHeartBeat(0);
     setTicks(0);
     setError();
     setWarning();
     setStatus("DISCONNECTED");
   }
+
+  /*
+  // this is an effect that happens everytime the client changes
+  useEffect(() => {
+    if (client) console.log(`!client!`);
+  }, [client]);
+  */
 
   useInterval(() => {
     if (thingy) {
@@ -185,7 +190,7 @@ export const ThingyProvider = ({ children }) => {
       }
 
       // force an error if the thingy is upsidedown
-      if (sensors.orientation === 1) {
+      if (sensors.orientation === 5) {
         setError("maintenance required");
         thingy.speakerdata.write(SPEAKER_SIREN);
       }
@@ -200,6 +205,7 @@ export const ThingyProvider = ({ children }) => {
       if (client) {
         const { hb, ...data } = sensors;
         publish(data);
+        dispatchSensorReading({ type: "RESET-TICK" });
       }
 
       // maintain connection state
@@ -287,13 +293,13 @@ function sensorReducer(state, { type, detail }) {
       const { x, y, z } = detail.value;
       let orientation;
       if (z >= 9.7 && z <= 9.9) orientation = 0; // "BOTTOM";
-      if (z >= -9.9 && z <= -9.7) orientation = 1; // "TOP";
+      if (z >= -9.9 && z <= -9.7) orientation = 5; // "TOP";
 
-      if (x >= 9.7 && x <= 9.9) orientation = 2; // "FRONT";
-      if (x >= -9.9 && x <= -9.7) orientation = 3; //"BACK";
+      if (x >= 9.7 && x <= 9.9) orientation = 1; // "FRONT";
+      if (x >= -9.9 && x <= -9.7) orientation = 2; //"BACK";
 
-      if (y >= 9.7 && y <= 9.9) orientation = 4; // "RIGHT";
-      if (y >= -9.9 && y <= -9.7) orientation = 5; //"LEFT";
+      if (y >= 9.7 && y <= 9.9) orientation = 3; // "RIGHT";
+      if (y >= -9.9 && y <= -9.7) orientation = 4; //"LEFT";
 
       return {
         ...state,
@@ -301,8 +307,16 @@ function sensorReducer(state, { type, detail }) {
         orientation
       };
 
-    case "RESET":
-      return { hb: 0 };
+    case "tap":
+      return { ...state, hb, vibration: state.vibration + detail.count };
+
+    // Reset any readings that need to be reset after every IoT "Publish"
+    case "RESET-TICK":
+      return { ...state, hb, vibration: 0 };
+
+      // Reset Everything
+    case "RESET-ALL":
+      return { hb: 0, vibration: 0 };
 
     default:
       console.error(

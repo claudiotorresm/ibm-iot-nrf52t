@@ -22,10 +22,12 @@ export function IotpProvider({ children }) {
         "auth-token": authToken
       });
 
+      setClient(_client); // first connection
+
       _client.on("connect", () => {
         setStatus("CONNECTED");
+        setClient(_client); // first connection
         if (!client) {
-          setClient(_client); // first connection
           resolve(_client);
         }
       });

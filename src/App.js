@@ -16,11 +16,14 @@ function App() {
     setToken,
     writeName,
     writeToken,
-    error
+    error,
+    warning,
   } = useThingy();
 
+  const { hb, ..._sensors } = sensors;
+
   return (
-    <div className="App">
+    <div className="App" style={{marginLeft:50, marginTop: 50 }}>
       <header className="App-header">
         <button onClick={connect} disabled={status !== "DISCONNECTED"}>
           Connect
@@ -34,6 +37,7 @@ function App() {
         <br />
         {status}
         {error && <div style={{ color: "red" }}>{error}</div>}
+        {warning && <div style={{ color: "brown" }}>Warning: {warning}</div>}
       </header>
       {typeof info.name === "string" && (
         <div>
@@ -54,7 +58,7 @@ function App() {
       <h3>Device Info</h3>
       <pre>{JSON.stringify(info, null, 4)}</pre>
       <h3>Sensors</h3>
-      <pre>{JSON.stringify(sensors, null, 4)}</pre>
+      <pre>{JSON.stringify(_sensors, null, 4)}</pre>
       <br/>
       {iotpStatus}
     </div>
