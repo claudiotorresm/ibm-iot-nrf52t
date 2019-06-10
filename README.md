@@ -1,7 +1,7 @@
 Note: This project was bootstrapped with 
 [Create React App](https://github.com/facebook/create-react-app).
 The original Read Me for the project can be found 
-[here](https://./README-CRA.md).
+[here](./README-CRA.md).
 
 # ibm-iot-nrft52t
 

@@ -1,8 +1,11 @@
 import React from "react";
 import "./App.css";
+import useIotp from "./state/useIotp";
 import useThingy from "./state/useThingy";
 
 function App() {
+  const { status: iotpStatus } = useIotp();
+
   const {
     connect,
     disconnect,
@@ -52,6 +55,8 @@ function App() {
       <pre>{JSON.stringify(info, null, 4)}</pre>
       <h3>Sensors</h3>
       <pre>{JSON.stringify(sensors, null, 4)}</pre>
+      <br/>
+      {iotpStatus}
     </div>
   );
 }

@@ -3,12 +3,15 @@ import ReactDOM from "react-dom";
 import "./index.css";
 import App from "./App";
 import * as serviceWorker from "./serviceWorker";
+import { IotpProvider } from "./state/useIotp";
 import { ThingyProvider } from "./state/useThingy";
 
 ReactDOM.render(
-  <ThingyProvider>
-    <App />
-  </ThingyProvider>,
+  <IotpProvider>
+    <ThingyProvider>
+      <App />
+    </ThingyProvider>
+  </IotpProvider>,
   document.getElementById("root")
 );
 

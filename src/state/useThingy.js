@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useReducer } from "react";
 import Thingy from "thingy52_web_bluetooth";
 import useInterval from "./useInterval";
+import useIotp from "./useIotp";
 
-const DEBUG = !!parseInt( process.env.REACT_APP_DEBUG_NRF_CONNECTION );
+const DEBUG = !!parseInt(process.env.REACT_APP_DEBUG_NRF_CONNECTION);
 
 export const [
   ONESHOT_RED,
@@ -44,18 +45,27 @@ const disconnectPulse = {
   delay: 1000
 };
 
+const defaultInfo = {
+  serial: undefined,
+  firmware: undefined,
+  name: undefined,
+  token: undefined
+};
+
 const Ctx = createContext();
 
 export const ThingyProvider = ({ children }) => {
   const [thingy, setThingy] = useState();
   const [status, setStatus] = useState("DISCONNECTED");
-  const [info, dispatchInfo] = useReducer(infoReducer, {});
+  const [info, setInfo] = useReducer(infoReducer, defaultInfo);
   const [sensors, dispatchSensorReading] = useReducer(sensorReducer, { hb: 0 });
   const [heartBeat, setHeartBeat] = useState(0);
   const [ticks, setTicks] = useState(0);
   const [buttonPressed, setButtonPressed] = useState();
   const [error, setError] = useState();
   const [warning, setWarning] = useState();
+
+  const { client, connect: iotpConnect } = useIotp();
 
   async function connect() {
     // create a new thingy
@@ -68,35 +78,33 @@ export const ThingyProvider = ({ children }) => {
       setStatus("INTEROGATION");
 
       // pull the "serial number" directly from the device itself
-      dispatchInfo({ type: "serial", detail: { serial: thingy.device.id } });
+      const serial = thingy.device.id.replace(/\=+$/,'');
+      setInfo({ serial });
 
-      // we need the firmware version right away...
+      // we need the name right away
+      const { name } = await thingy.name.read();
+      setInfo({ name });
+
+      // connect to iotp...
+      const iotp = await iotpConnect({
+        org: process.env.REACT_APP_DEFAULT_IOTP_ORG,
+        type: process.env.REACT_APP_DEFAULT_IOTP_TYPE,
+        id: name,
+        authToken: serial
+      });
+
+      console.log(iotp);
+
       thingy.firmware.read().then(({ firmware }) => {
         const VERSIONS = process.env.REACT_APP_KNOWN_NRF_VERSIONS;
         const knownVersions = VERSIONS.split("|");
         if (!knownVersions.includes(firmware)) {
           setWarning(`Old Firmware, Please Upgrade to ${knownVersions[0]}`);
         }
-        dispatchInfo({
-          type: "firmware",
-          detail: { firmware }
-        });
+        setInfo({ firmware });
       });
 
-      // we need the name right away
-      thingy.name.read().then(({ name }) =>
-        dispatchInfo({
-          type: "name",
-          detail: { name }
-        })
-      );
-
-      thingy.cloudtoken.read().then(({ token }) =>
-        dispatchInfo({
-          type: "token",
-          detail: { token }
-        })
-      );
+      thingy.cloudtoken.read().then(({ token }) => setInfo({ token }));
 
       [
         "battery",
@@ -149,7 +157,7 @@ export const ThingyProvider = ({ children }) => {
     await thingy.led.write(disconnectPulse); // restore LED state...
     await thingy.disconnect();
     setThingy();
-    dispatchInfo({ type: "RESET" });
+    setInfo(defaultInfo);
     dispatchSensorReading({ type: "RESET" });
     setHeartBeat(0);
     setTicks(0);
@@ -186,7 +194,7 @@ export const ThingyProvider = ({ children }) => {
   }, 1000);
 
   async function setName(name) {
-    dispatchInfo({ type: "name", detail: { name } });
+    setInfo({name});
   }
 
   // writeName() - only write a non-empty name back to the thingy
@@ -195,7 +203,7 @@ export const ThingyProvider = ({ children }) => {
   }
 
   async function setToken(token) {
-    dispatchInfo({ type: "token", detail: { token } });
+    setInfo({token});
   }
 
   async function writeToken() {
@@ -220,26 +228,11 @@ export const ThingyProvider = ({ children }) => {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 };
 
-function infoReducer(state, { type, detail }) {
-  switch (type) {
-    case "serial":
-    case "name":
-    case "firmware":
-    case "token":
-      // console.log(`"${type}": ${JSON.stringify(detail[type])}`);
-      return { ...state, [type]: detail[type] };
-
-    case "RESET":
-      return {};
-
-    default:
-      console.error(`unhandled info "${type}": ${JSON.stringify(detail)}`);
-      return { ...state };
-  }
+function infoReducer(state, action) {
+  return { ...state, ...action };
 }
 
 function sensorReducer(state, { type, detail }) {
-
   // console.warn(`${type}: ${JSON.stringify(detail)}`);
 
   const hb = state.hb + 1;
