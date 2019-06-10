@@ -52,8 +52,8 @@ export function IotpProvider({ children }) {
     setStatus("DISCONNECTED");
   }
 
-  function publish(data, eventType = "status") {
-    client.publish(eventType, "json", JSON.stringify({ d: { ...data } }));
+  function publish(data, eventName = "status") {
+    client.publish(eventName, "json", JSON.stringify({ d: { ...data } }));
   }
 
   return (

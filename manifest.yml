@@ -1,0 +1,9 @@
+---
+applications:
+- buildpack: https://github.com/cloudfoundry/staticfile-buildpack.git
+  memory: 64M
+  stack: cflinuxfs2
+  path: build
+  name: nrf52t
+  routes:
+  - route: nrf52t.mybluemix.net

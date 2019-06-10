@@ -5,6 +5,10 @@ import useIotp from "./useIotp";
 
 const DEBUG = !!parseInt(process.env.REACT_APP_DEBUG_NRF_CONNECTION);
 
+// How often should we publish sensor readings? (default 5 secs)
+const publishInterval = parseInt(process.env.REACT_APP_IOTP_PUBLISH) || 5000;
+if (DEBUG) console.log(`Publish Interval: ${publishInterval} ms`);
+
 export const [
   ONESHOT_RED,
   ONESHOT_GREEN,
@@ -42,7 +46,7 @@ const disconnectPulse = {
   mode: "breathe",
   color: "blue",
   intensity: 30,
-  delay: 1000
+  delay: 800
 };
 
 const defaultInfo = {
@@ -65,7 +69,7 @@ export const ThingyProvider = ({ children }) => {
   const [error, setError] = useState();
   const [warning, setWarning] = useState();
 
-  const { client, connect: iotpConnect } = useIotp();
+  const { connect: iotpConnect, client, publish } = useIotp();
 
   async function connect() {
     // create a new thingy
@@ -77,8 +81,9 @@ export const ThingyProvider = ({ children }) => {
 
       setStatus("INTEROGATION");
 
-      // pull the "serial number" directly from the device itself
-      const serial = thingy.device.id.replace(/\=+$/,'');
+      // pull the "serial number" directly from the device itself,
+      // and trim any trailing "="s from the string
+      const serial = thingy.device.id.replace(/[=\\@$#/]/g, "");
       setInfo({ serial });
 
       // we need the name right away
@@ -120,8 +125,13 @@ export const ThingyProvider = ({ children }) => {
       });
 
       thingy.addEventListener("tap", ({ detail }) => {
-        // do something here!
-        console.log(`Tap Detected: ${detail.direction} ${detail.count}`);
+        //if (client) {
+          //publish(detail, "vibration");
+          if (DEBUG) {
+            console.log(`Tap Detected: ${detail.direction} ${detail.count}`);
+            if (!client) console.warn("no client for tap");
+          }
+        //}
       });
       thingy.tap.start();
 
@@ -187,14 +197,19 @@ export const ThingyProvider = ({ children }) => {
         );
       }
 
+      if (client) {
+        const { hb, ...data } = sensors;
+        publish(data);
+      }
+
       // maintain connection state
       setTicks(ticks + 1);
       setHeartBeat(sensors.hb);
     }
-  }, 1000);
+  }, publishInterval);
 
   async function setName(name) {
-    setInfo({name});
+    setInfo({ name });
   }
 
   // writeName() - only write a non-empty name back to the thingy
@@ -203,7 +218,7 @@ export const ThingyProvider = ({ children }) => {
   }
 
   async function setToken(token) {
-    setInfo({token});
+    setInfo({ token });
   }
 
   async function writeToken() {
