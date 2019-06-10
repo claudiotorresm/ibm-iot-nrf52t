@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useReducer } from "react";
 import Thingy from "thingy52_web_bluetooth";
 import useInterval from "./useInterval";
 
+const DEBUG = !!parseInt( process.env.REACT_APP_DEBUG_NRF_CONNECTION );
+
 export const [
   ONESHOT_RED,
   ONESHOT_GREEN,
@@ -57,7 +59,7 @@ export const ThingyProvider = ({ children }) => {
 
   async function connect() {
     // create a new thingy
-    const thingy = new Thingy({ logEnabled: true });
+    const thingy = new Thingy({ logEnabled: DEBUG });
 
     setStatus("CONNECTING");
     if (await thingy.connect()) {
@@ -65,20 +67,23 @@ export const ThingyProvider = ({ children }) => {
 
       setStatus("INTEROGATION");
 
+      // pull the "serial number" directly from the device itself
       dispatchInfo({ type: "serial", detail: { serial: thingy.device.id } });
 
+      // we need the firmware version right away...
       thingy.firmware.read().then(({ firmware }) => {
         const VERSIONS = process.env.REACT_APP_KNOWN_NRF_VERSIONS;
         const knownVersions = VERSIONS.split("|");
-        if (!knownVersions.includes(firmware))
-          setError(`Old NRFT Firmware, Please Upgrade to ${knownVersions[0]}`);
-
+        if (!knownVersions.includes(firmware)) {
+          setWarning(`Old Firmware, Please Upgrade to ${knownVersions[0]}`);
+        }
         dispatchInfo({
           type: "firmware",
           detail: { firmware }
         });
       });
 
+      // we need the name right away
       thingy.name.read().then(({ name }) =>
         dispatchInfo({
           type: "name",
