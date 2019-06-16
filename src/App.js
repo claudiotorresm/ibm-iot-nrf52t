@@ -8,6 +8,9 @@ import useThingy, {
     SOLID_PURPLE,
     SOLID_RED,
     UOM,
+    SPEAKER_DING,
+    ONESHOT_LIME,
+    SPEAKER_BEEP,
 } from './state/useThingy';
 import useInterval from './state/useInterval';
 
@@ -18,7 +21,7 @@ import DeviceIcon from '@carbon/icons-react/lib/devices/20';
 import DisconnectedIcon from '@carbon/icons-react/lib/circle-dash/20';
 import ConnectedIcon from '@carbon/icons-react/lib/checkmark--filled/20';
 import LostConnectionIcon from '@carbon/icons-react/lib/bluetooth--off/20';
-//import ArrowIcon from '@carbon/icons-react/lib/arrow--up/32';
+import SpeakerIcon from '@carbon/icons-react/lib/volume--up/20';
 
 import { FontAwesomeIcon as FA } from '@fortawesome/react-fontawesome';
 
@@ -71,6 +74,11 @@ function App() {
                 authToken: authToken,
             };
             connectIotp(iotpOpts);
+        }
+
+        if (thingyStatus === 'CONNECTED' && iotpStatus === 'CONNECTED') {
+            // Woot, we got everything connected!
+            writeSpeaker(SPEAKER_DING);
         }
     }, [thingyStatus, iotpStatus, info, connectIotp]);
 
@@ -134,6 +142,11 @@ function App() {
         ) && ['CONNECTED', 'DISCONNECTED'].includes(iotpStatus)
             ? false
             : true;
+
+    function locateSensor() {
+        writeLed(ONESHOT_LIME);
+        writeSpeaker(SPEAKER_BEEP);
+    }
 
     return (
         <div className="App">
@@ -319,11 +332,13 @@ function App() {
                                             size="5x"
                                             color="white"
                                         />
-                                    ) : <FA
-                                    icon={ConditionGoodIcon}
-                                    size="5x"
-                                    color="white"
-                                />}
+                                    ) : (
+                                        <FA
+                                            icon={ConditionGoodIcon}
+                                            size="5x"
+                                            color="white"
+                                        />
+                                    )}
                                 </span>
                             </div>
                         </div>
@@ -360,11 +375,18 @@ function App() {
                                 </span>
                                 <br />
                                 <br />
-                                <span style={{color:"white"}}>{error}</span>
+                                <span style={{ color: 'white' }}>{error}</span>
                             </div>
                         </div>
 
                         {/* end of cards */}
+                    </div>
+                    <div className="bx--row">
+                        <div className="bx--col"> 
+                        <Button renderIcon={SpeakerIcon} onClick={locateSensor}>
+                            Find My Sensor
+                        </Button>
+                        </div>
                     </div>
                 </div>
             )}
