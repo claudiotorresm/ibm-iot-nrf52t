@@ -1,10 +1,11 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import "./index.css";
 import App from "./App";
 import * as serviceWorker from "./serviceWorker";
 import { IotpProvider } from "./state/useIotp";
 import { ThingyProvider } from "./state/useThingy";
+
+import "./index.scss";
 
 ReactDOM.render(
   <IotpProvider>

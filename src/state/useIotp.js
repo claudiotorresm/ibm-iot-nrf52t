@@ -40,6 +40,7 @@ export function IotpProvider({ children }) {
         setError(err);
         console.error(`IOTP: ${err.message} (${err.code})`);
         if (!client) {
+          setStatus("NOT-AUTHORIZED");
           resolve(false); // we have failed to connect;
         }
       });
