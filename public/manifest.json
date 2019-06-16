@@ -1,6 +1,6 @@
 {
-  "short_name": "Watson IoT Gateway",
-  "name": "IBM Watson IoT Gateway",
+  "short_name": "%REACT_APP_PLATFORM_NAME%",
+  "name": "%REACT_APP_PLATFORM_PREFIX% %REACT_APP_PLATFORM_NAME%",
   "icons": [
     {
       "src": "favicon.ico",

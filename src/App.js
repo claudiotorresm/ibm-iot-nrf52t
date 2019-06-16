@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.scss';
+import 'font-awesome/css/font-awesome.min.css';
+
 import useIotp from './state/useIotp';
 import useThingy, {
     SPEAKER_SIREN,
@@ -17,6 +19,10 @@ import DeviceIcon from '@carbon/icons-react/lib/devices/20';
 import DisconnectedIcon from '@carbon/icons-react/lib/circle-dash/20';
 import ConnectedIcon from '@carbon/icons-react/lib/checkmark--filled/20';
 import LostConnectionIcon from '@carbon/icons-react/lib/bluetooth--off/20';
+//import ArrowIcon from '@carbon/icons-react/lib/arrow--up/32';
+
+import { FontAwesomeIcon as FA } from '@fortawesome/react-fontawesome';
+import { faArrowAltCircleUp as ArrowIcon } from '@fortawesome/free-solid-svg-icons';
 
 //const knownVersions = process.env.REACT_APP_KNOWN_NRF_VERSIONS.split('|');
 
@@ -210,6 +216,23 @@ function App() {
                                 <p>Device ID: {info.name}</p>
                                 <br />
                                 <p>Firmware: {info.firmware}</p>
+                                <br />
+                                <br />
+                                <h3 style={{ fontWeight: 'bold' }}>Heading</h3>
+                                <br />
+                                <br />
+                                <p>
+                                    <FA
+                                        icon={ArrowIcon}
+                                        size="5x"
+                                        color="gray"
+                                        transform={{
+                                            rotate: Math.round(
+                                                sensors.heading || 0
+                                            ),
+                                        }}
+                                    />
+                                </p>
                             </div>
                         </div>
 
@@ -249,12 +272,38 @@ function App() {
                         </div>
 
                         <div className="bx--col-sm-2">
-                            <div className="bx--tile" style={{...tileStyle, backgroundColor: sensors.vibration > 4 ? "red" : "green"}}>
+                            <div
+                                className="bx--tile"
+                                style={{
+                                    ...tileStyle,
+                                    backgroundColor:
+                                        sensors.vibration > 2 ? 'red' : 'green',
+                                }}
+                            >
                                 <h3 style={{ fontWeight: 'bold' }}>
                                     Vibration
                                 </h3>
                             </div>
                         </div>
+
+                        <div className="bx--col-sm-2">
+                            <div
+                                className="bx--tile"
+                                style={{
+                                    ...tileStyle,
+                                    backgroundColor: error ? 'red' : 'green',
+                                }}
+                            >
+                                <h3 style={{ fontWeight: 'bold' }}>
+                                    Condition
+                                </h3>
+                                <br />
+                                <br />
+                                <br />
+                                {error ? error : '(normal)'}
+                            </div>
+                        </div>
+
                         {/* end of cards */}
                     </div>
                 </div>
