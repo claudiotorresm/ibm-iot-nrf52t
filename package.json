@@ -10,6 +10,7 @@
     "carbon-components": "10.3.1",
     "carbon-components-react": "7.3.1",
     "carbon-icons": "7.0.7",
+    "detect-browser": "4.5.1",
     "ibmiotf": "0.2.41",
     "node-sass": "4.12.0",
     "react": "^16.8.6",
