@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import './App.scss';
-import 'font-awesome/css/font-awesome.min.css';
 
 import useIotp from './state/useIotp';
 import useThingy, {
@@ -22,7 +21,13 @@ import LostConnectionIcon from '@carbon/icons-react/lib/bluetooth--off/20';
 //import ArrowIcon from '@carbon/icons-react/lib/arrow--up/32';
 
 import { FontAwesomeIcon as FA } from '@fortawesome/react-fontawesome';
-import { faArrowAltCircleUp as ArrowIcon } from '@fortawesome/free-solid-svg-icons';
+
+import {
+    faArrowAltCircleUp as ArrowIcon,
+    faThumbsUp as ConditionGoodIcon,
+    faExclamationTriangle as ConditionBadIcon,
+    faHammer as VibrationErrorIcon,
+} from '@fortawesome/free-solid-svg-icons';
 
 //const knownVersions = process.env.REACT_APP_KNOWN_NRF_VERSIONS.split('|');
 
@@ -30,6 +35,8 @@ const tileStyle = {
     height: 250,
     marginBottom: 16,
 };
+
+const tileContainer = 'bx--col-sm-2 bx--col-md-2';
 
 function App() {
     const [error, setError] = useState();
@@ -155,8 +162,11 @@ function App() {
             </div>
             <div className="bx--grid">
                 <div className="bx--row">
-                    <div className="bx--col-sm-1">Sensor:</div>
-                    <div className="bx--col-sm-1" style={{ marginLeft: 16 }}>
+                    <div className="bx--col-sm-1 bx--col-md-1">Sensor:</div>
+                    <div
+                        className="bx--col-sm-1 bx--col-md-1"
+                        style={{ marginLeft: 16 }}
+                    >
                         {thingyStatus === 'CONNECTED' ? (
                             <ConnectedIcon style={{ fill: 'green' }} />
                         ) : thingyStatus === 'LOST-CONNECTION' ? (
@@ -167,8 +177,11 @@ function App() {
                     </div>
                 </div>
                 <div className="bx--row">
-                    <div className="bx--col-sm-1">IoTP:</div>
-                    <div className="bx--col-sm-1" style={{ marginLeft: 16 }}>
+                    <div className="bx--col-sm-1 bx--col-md-1">IoTP:</div>
+                    <div
+                        className="bx--col-sm-1 bx--col-md-1"
+                        style={{ marginLeft: 16 }}
+                    >
                         {iotpStatus === 'CONNECTED' ? (
                             <ConnectedIcon style={{ fill: 'green' }} />
                         ) : (
@@ -207,7 +220,7 @@ function App() {
             {thingyStatus === 'CONNECTED' && (
                 <div className="bx--grid" style={{ marginTop: 32 }}>
                     <div className="bx--row">
-                        <div className="bx--col-sm-2">
+                        <div className={tileContainer}>
                             <div className="bx--tile" style={tileStyle}>
                                 <h3 style={{ fontWeight: 'bold' }}>
                                     Device Info
@@ -217,9 +230,14 @@ function App() {
                                 <br />
                                 <p>Firmware: {info.firmware}</p>
                                 <br />
+                                <p>
+                                    Battery:{' '}
+                                    {typeof sensors.battery === 'number'
+                                        ? `${sensors.battery}${UOM.battery}`
+                                        : ' calibrating'}
+                                </p>
                                 <br />
                                 <h3 style={{ fontWeight: 'bold' }}>Heading</h3>
-                                <br />
                                 <br />
                                 <p>
                                     <FA
@@ -236,57 +254,81 @@ function App() {
                             </div>
                         </div>
 
-                        <div className="bx--col-sm-2">
+                        <div className={tileContainer}>
                             <div className="bx--tile" style={tileStyle}>
                                 <h3 style={{ fontWeight: 'bold' }}>
                                     Environment
                                 </h3>
                                 <br />
                                 <p>
-                                    Temperature: {sensors.temperature}{' '}
+                                    Temperature: {sensors.temperature}
                                     {UOM.temperature}
                                 </p>
                                 <br />
                                 <p>
-                                    Humidity: {sensors.humidity} {UOM.humidity}
+                                    Humidity: {sensors.humidity}
+                                    {UOM.humidity}
                                 </p>
                                 <br />
                                 <p>
-                                    Pressure: {sensors.pressure} {UOM.pressure}
+                                    Pressure: {sensors.pressure}
+                                    {UOM.pressure}
                                 </p>
                                 <br />
                                 <p>
                                     CO2:{' '}
                                     {typeof sensors.co2 === 'number'
-                                        ? `${sensors.co2} ${UOM.co2}`
-                                        : 'calibrating'}
+                                        ? `${sensors.co2}${UOM.co2}`
+                                        : ' calibrating'}
                                 </p>
                                 <br />
                                 <p>
                                     VOC:{' '}
                                     {typeof sensors.voc === 'number'
-                                        ? `${sensors.voc} ${UOM.voc}`
-                                        : 'calibrating'}
+                                        ? `${sensors.voc}${UOM.voc}`
+                                        : ' calibrating'}
                                 </p>
                             </div>
                         </div>
 
-                        <div className="bx--col-sm-2">
+                        <div className={tileContainer}>
                             <div
                                 className="bx--tile"
                                 style={{
                                     ...tileStyle,
-                                    backgroundColor:
-                                        sensors.vibration > 2 ? 'red' : 'green',
+                                    backgroundColor: sensors.vibration
+                                        ? 'red'
+                                        : 'green',
                                 }}
                             >
-                                <h3 style={{ fontWeight: 'bold' }}>
+                                <h3
+                                    style={{
+                                        fontWeight: 'bold',
+                                        color: 'white',
+                                    }}
+                                >
                                     Vibration
                                 </h3>
+                                <br />
+                                <br />
+                                <br />
+                                <span style={{ marginLeft: 10 }}>
+                                    {sensors.vibration ? (
+                                        <FA
+                                            icon={VibrationErrorIcon}
+                                            size="5x"
+                                            color="white"
+                                        />
+                                    ) : <FA
+                                    icon={ConditionGoodIcon}
+                                    size="5x"
+                                    color="white"
+                                />}
+                                </span>
                             </div>
                         </div>
 
-                        <div className="bx--col-sm-2">
+                        <div className={tileContainer}>
                             <div
                                 className="bx--tile"
                                 style={{
@@ -294,13 +336,31 @@ function App() {
                                     backgroundColor: error ? 'red' : 'green',
                                 }}
                             >
-                                <h3 style={{ fontWeight: 'bold' }}>
+                                <h3
+                                    style={{
+                                        fontWeight: 'bold',
+                                        color: 'white',
+                                    }}
+                                >
                                     Condition
                                 </h3>
                                 <br />
                                 <br />
                                 <br />
-                                {error ? error : '(normal)'}
+                                <span style={{ marginLeft: 10 }}>
+                                    <FA
+                                        icon={
+                                            error
+                                                ? ConditionBadIcon
+                                                : ConditionGoodIcon
+                                        }
+                                        size="5x"
+                                        color="white"
+                                    />
+                                </span>
+                                <br />
+                                <br />
+                                <span style={{color:"white"}}>{error}</span>
                             </div>
                         </div>
 
