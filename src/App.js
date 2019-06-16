@@ -80,7 +80,7 @@ function App() {
             // Woot, we got everything connected!
             writeSpeaker(SPEAKER_DING);
         }
-    }, [thingyStatus, iotpStatus, info, connectIotp]);
+    }, [thingyStatus, iotpStatus, info, connectIotp ]);
 
     useEffect(() => {
         // only runs when orientation changes, but happens immediately
@@ -88,7 +88,7 @@ function App() {
             setError('maintenance required');
             writeLed(SOLID_RED);
         }
-    }, [sensors.orientation, writeLed]);
+    }, [sensors.orientation ]);
 
     useInterval(() => {
         if (thingyStatus === 'CONNECTED' && iotpStatus === 'CONNECTED') {
