@@ -1,20 +1,177 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useReducer,
-  //useEffect
-} from "react";
+import React, { createContext, useContext, useState, useReducer } from "react";
+
 import Thingy from "thingy52_web_bluetooth";
+
 import useInterval from "./useInterval";
-import useIotp from "./useIotp";
 
 const DEBUG = !!parseInt(process.env.REACT_APP_DEBUG_NRF_CONNECTION);
 
-// How often should we publish sensor readings? (default 5 secs)
-const publishInterval = parseInt(process.env.REACT_APP_IOTP_PUBLISH) || 5000;
+export const nrfVersions = process.env.REACT_APP_KNOWN_NRF_VERSIONS.split("|");
 
-if (DEBUG) console.log(`Publish Interval: ${publishInterval} ms`);
+const thingy = new Thingy({ logEnabled: DEBUG });
+
+window.thingy = thingy;
+
+
+const sensorServices = [
+  "battery",
+  "temperature",
+  "humidity",
+  "pressure",
+  "gas",
+  "heading",
+  "gravityvector",
+  "tap",
+];
+
+const defaultSensorValues = {
+  // default sensor values... if any
+};
+
+const Ctx = createContext();
+
+export const ThingyProvider = ({ children }) => {
+  const [status, setStatus] = useState("DISCONNECTED");
+  const [info, setInfo] = useReducer(
+    (state, value) => ({ ...state, ...value }),
+    {}
+  );
+  const [lastReading, setLastReading] = useState();
+  const [sensors, dispatchSensorReading] = useReducer(sensorReducer, {
+    ...defaultSensorValues
+  });
+
+  async function connect(buttonListener) {
+    setStatus("CONNECTING");
+    if (await thingy.connect()) {
+      // we have a thingy! set it up for use
+      setStatus("INTEROGATION");
+
+      ["name", "firmware", "cloudtoken"].forEach(serviceName => {
+        thingy[serviceName].read().then(setInfo);
+      });
+
+      sensorServices.forEach(serviceName => {
+        thingy.addEventListener(serviceName, dispatchSensorReading);
+        thingy[serviceName].start();
+      });
+
+      thingy.addEventListener("button", buttonListener);
+      thingy.button.start();
+
+      // set up the speaker
+      await thingy.soundconfiguration.write({ speakerMode: 3 });
+
+      setStatus("CONNECTED");
+    } else {
+      setStatus("DISCONNECTED");
+    }
+  }
+
+  async function setName(name) {
+    setInfo({ name });
+  }
+
+  async function setToken(token) {
+    setInfo({ token });
+  }
+
+  function sensorReducer(state, { type, detail }) {
+    setLastReading(Date.now());
+    switch (type) {
+      case "temperature":
+      case "humidity":
+      case "pressure":
+        return {
+          ...state,
+          [type]: detail.value
+        };
+
+      case "gas":
+        return {
+          ...state,
+          co2: detail.eCO2.value,
+          voc: detail.TVOC.value
+        };
+
+      case "battery":
+        return {
+          ...state,
+          battery: detail.status
+        };
+
+      case "heading":
+        return {
+          ...state,
+          heading: detail.heading
+        };
+
+      case "gravityvector":
+        const { x, y, z } = detail.value;
+        let orientation;
+        if (z >= 9.7 && z <= 9.9) orientation = 0; // "BOTTOM";
+        if (z >= -9.9 && z <= -9.7) orientation = 5; // "TOP";
+
+        if (x >= 9.7 && x <= 9.9) orientation = 1; // "FRONT";
+        if (x >= -9.9 && x <= -9.7) orientation = 2; //"BACK";
+
+        if (y >= 9.7 && y <= 9.9) orientation = 3; // "RIGHT";
+        if (y >= -9.9 && y <= -9.7) orientation = 4; //"LEFT";
+
+        return {
+          ...state,
+          orientation
+        };
+
+      case "tap":
+        return { ...state, vibration: (state.vibration || 0) + detail.count };
+
+      // Reset any readings that need to be reset after every IoT "Publish"
+      case "RESET":
+        return { ...state, vibration: 0 };
+
+      default:
+        console.error(
+          `unhandled sensor event ${type}: ${JSON.stringify(detail)}`
+        );
+        return { ...state };
+    }
+  }
+
+  // check for a disconnected thingy...
+  const heartbeatTimeout = parseInt(process.env.REACT_APP_NRF_HEARTBEAT_INTERVAL);
+  useInterval(() => {
+    if (lastReading && Date.now() - lastReading > heartbeatTimeout) {
+      setStatus("LOST-CONNECTION");
+      setLastReading();
+    }
+  }, parseInt(process.env.REACT_APP_NRF_HEARTBEAT_INTERVAL));
+
+  return (
+    <Ctx.Provider
+      value={{
+        thingy,
+        status,
+        connect,
+        info,
+        lastReading,
+        sensors,
+        setName,
+        setToken,
+        dispatchSensorReading,
+        writeName: () => info.name && thingy.name.write(info.name),
+        writeToken: () => thingy.cloudtoken.write(info.token),
+        writeLed: led => thingy.led.write(led),
+        writeSpeaker: sample => thingy.speakerdata.write(sample)
+      }}
+    >
+      {children}
+    </Ctx.Provider>
+  );
+};
+
+// consumer...
+export default () => useContext(Ctx);
 
 export const [
   ONESHOT_RED,
@@ -24,11 +181,18 @@ export const [
   ONESHOT_PURPLE,
   ONESHOT_CYAN,
   ONESHOT_WHITE
-] = [1, 2, 3, 4, 5, 6, 7];
+] = [1, 2, 3, 4, 5, 6, 7].map(color => ({
+  mode: "oneshot",
+  color,
+  intensity: 50
+}));
 
-export const SPEAKER_DING = { mode: 3, sample: 0 };
-export const SPEAKER_BEEP = { mode: 3, sample: 1 };
-export const SPEAKER_SIREN = { mode: 3, sample: 6 };
+export const SOLID_RED = { mode: "constant", red: 255, green: 0, blue: 0 };
+export const SOLID_PURPLE = { mode: "constant", red: 255, green: 0, blue: 255 };
+
+export const [SPEAKER_DING, SPEAKER_BEEP, SPEAKER_SIREN] = [0, 1, 6].map(
+  sample => ({ mode: 3, sample })
+);
 
 export const UOM = {
   temperature: "°C",
@@ -41,290 +205,3 @@ export const UOM = {
   vibration: "times",
   orientation: "side (facing down)"
 };
-
-const hbPulses = [
-  { mode: "oneshot", color: ONESHOT_PURPLE, intensity: 10 },
-  //{ mode: "oneshot", color: ONESHOT_CYAN, intensity: 10 },
-  { mode: "off" }
-];
-
-const hbErrorPulse = { mode: "oneshot", color: ONESHOT_RED, intensity: 50 };
-
-const disconnectPulse = {
-  mode: "breathe",
-  color: "blue",
-  intensity: 30,
-  delay: 800
-};
-
-const defaultInfo = {
-  serial: undefined,
-  firmware: undefined,
-  name: undefined,
-  token: undefined
-};
-
-const defaultSensors = { hb: 0, vibration: 0, battery: 38 };
-
-const Ctx = createContext();
-
-export const ThingyProvider = ({ children }) => {
-  const [thingy, setThingy] = useState();
-  const [status, setStatus] = useState("DISCONNECTED");
-  const [info, setInfo] = useReducer(infoReducer, defaultInfo);
-  const [sensors, dispatchSensorReading] = useReducer(sensorReducer, { ...defaultSensors });
-  const [heartBeat, setHeartBeat] = useState(0);
-  const [ticks, setTicks] = useState(0);
-  const [buttonPressed, setButtonPressed] = useState();
-  const [error, setError] = useState();
-  const [warning, setWarning] = useState();
-
-  const { connect: iotpConnect, client, publish } = useIotp();
-
-  async function connect() {
-    // create a new thingy
-    const thingy = new Thingy({ logEnabled: DEBUG });
-
-    setStatus("CONNECTING");
-    if (await thingy.connect()) {
-      // we have a thingy! set it up for use
-
-      setStatus("INTEROGATION");
-
-      // pull the "serial number" directly from the device itself,
-      // and trim any trailing "="s from the string
-      const serial = thingy.device.id.replace(/[=\\@$#/]/g, "");
-      setInfo({ serial });
-
-      // we need the name right away
-      const { name } = await thingy.name.read();
-      setInfo({ name });
-
-      // connect to iotp...
-      const iotp = await iotpConnect({
-        org: process.env.REACT_APP_DEFAULT_IOTP_ORG,
-        type: process.env.REACT_APP_DEFAULT_IOTP_TYPE,
-        id: name,
-        authToken: serial
-      });
-
-      thingy.firmware.read().then(({ firmware }) => {
-        const VERSIONS = process.env.REACT_APP_KNOWN_NRF_VERSIONS;
-        const knownVersions = VERSIONS.split("|");
-        if (!knownVersions.includes(firmware)) {
-          setWarning(`Old Firmware, Please Upgrade to ${knownVersions[0]}`);
-        }
-        setInfo({ firmware });
-      });
-
-      thingy.cloudtoken.read().then(({ token }) => setInfo({ token }));
-
-      [
-        "battery",
-        "temperature",
-        "humidity",
-        "pressure",
-        "gas",
-        "heading",
-        "gravityvector",
-        "tap"
-      ].forEach(serviceName => {
-        thingy.addEventListener(serviceName, dispatchSensorReading);
-        thingy[serviceName].start();
-      });
-
-      thingy.addEventListener("button", ({ detail: { value } }) => {
-        if (value) {
-          // On Button Press
-          setButtonPressed(true);
-          setError();
-          thingy.led.write({ mode: "constant", red: 255, green: 0, blue: 255 });
-        } else {
-          // On Button Release
-          setButtonPressed();
-          thingy.led.write({ mode: "off" });
-        }
-      });
-      thingy.button.start();
-
-      // set up the speaker
-      await thingy.soundconfiguration.write({ speakerMode: 3 });
-      setTimeout(() => {
-        thingy.speakerdata.write( iotp ? SPEAKER_DING : SPEAKER_BEEP );
-      }, 100);
-
-      setStatus("CONNECTED");
-      setThingy(thingy);
-    } else {
-      setStatus("DISCONNECTED");
-    }
-  }
-
-  async function disconnect() {
-    setStatus("DISCONNECTING");
-    await thingy.led.write(disconnectPulse); // restore LED state...
-    await thingy.disconnect();
-    setThingy();
-    setInfo(defaultInfo);
-    dispatchSensorReading({ type: "RESET-ALL" });
-    setHeartBeat(0);
-    setTicks(0);
-    setError();
-    setWarning();
-    setStatus("DISCONNECTED");
-  }
-
-  /*
-  // this is an effect that happens everytime the client changes
-  useEffect(() => {
-    if (client) console.log(`!client!`);
-  }, [client]);
-  */
-
-  useInterval(() => {
-    if (thingy) {
-      // Health Check - Did we loose the thingy?
-      if (heartBeat && heartBeat === sensors.hb) {
-        console.warn("NRF52T has disconnected or moved out of range");
-        return disconnect();
-      }
-
-      // force an error if the thingy is upsidedown
-      if (sensors.orientation === 5) {
-        setError("maintenance required");
-        thingy.speakerdata.write(SPEAKER_SIREN);
-      }
-
-      // only update the LED if the user isn't pressing a button
-      if (!buttonPressed) {
-        thingy.led.write(
-          error ? hbErrorPulse : hbPulses[ticks % hbPulses.length]
-        );
-      }
-
-      if (client) {
-        const { hb, ...data } = sensors;
-        publish(data);
-        dispatchSensorReading({ type: "RESET-TICK" });
-      }
-
-      // maintain connection state
-      setTicks(ticks + 1);
-      setHeartBeat(sensors.hb);
-    }
-  }, publishInterval);
-
-  async function setName(name) {
-    setInfo({ name });
-  }
-
-  // writeName() - only write a non-empty name back to the thingy
-  async function writeName() {
-    return await (info.name && thingy.name.write(info.name));
-  }
-
-  async function setToken(token) {
-    setInfo({ token });
-  }
-
-  async function writeToken() {
-    return await thingy.cloudtoken.write(info.token);
-  }
-
-  const value = {
-    thingy,
-    status,
-    connect,
-    disconnect,
-    info,
-    sensors,
-    error,
-    warning,
-    setName,
-    writeName,
-    setToken,
-    writeToken
-  };
-
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
-};
-
-function infoReducer(state, action) {
-  return { ...state, ...action };
-}
-
-function sensorReducer(state, { type, detail }) {
-  // console.warn(`${type}: ${JSON.stringify(detail)}`);
-
-  const hb = state.hb + 1;
-  switch (type) {
-    case "temperature":
-    case "humidity":
-    case "pressure":
-      return {
-        ...state,
-        hb,
-        [type]: detail.value
-      };
-
-    case "gas":
-      return {
-        ...state,
-        hb,
-        co2: detail.eCO2.value,
-        voc: detail.TVOC.value
-      };
-
-    case "battery":
-      return {
-        ...state,
-        hb,
-        battery: detail.status
-      };
-
-    case "heading":
-      return {
-        ...state,
-        hb,
-        heading: detail.heading
-      };
-
-    case "gravityvector":
-      const { x, y, z } = detail.value;
-      let orientation;
-      if (z >= 9.7 && z <= 9.9) orientation = 0; // "BOTTOM";
-      if (z >= -9.9 && z <= -9.7) orientation = 5; // "TOP";
-
-      if (x >= 9.7 && x <= 9.9) orientation = 1; // "FRONT";
-      if (x >= -9.9 && x <= -9.7) orientation = 2; //"BACK";
-
-      if (y >= 9.7 && y <= 9.9) orientation = 3; // "RIGHT";
-      if (y >= -9.9 && y <= -9.7) orientation = 4; //"LEFT";
-
-      return {
-        ...state,
-        hb,
-        orientation
-      };
-
-    case "tap":
-      return { ...state, hb, vibration: state.vibration + detail.count };
-
-    // Reset any readings that need to be reset after every IoT "Publish"
-    case "RESET-TICK":
-      return { ...state, hb, vibration: 0 };
-
-      // Reset Everything
-    case "RESET-ALL":
-      return { hb: 0, vibration: 0 };
-
-    default:
-      console.error(
-        `unhandled sensor event ${type}: ${JSON.stringify(detail)}`
-      );
-      return { ...state };
-  }
-}
-
-// consumer...
-export default () => useContext(Ctx);

@@ -11,7 +11,7 @@ export function IotpProvider({ children }) {
   const [error, setError] = useState();
 
   async function connect({ org, type, id, authToken }) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       setStatus("CONNECTING");
 
       const _client = new Client.IotfDevice({
