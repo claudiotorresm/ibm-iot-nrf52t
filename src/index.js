@@ -9,23 +9,45 @@ import { detect } from 'detect-browser';
 
 import './index.scss';
 
-const { name, version, os } = detect();
+const { name: browserName, version: browserVersion, os: browserOS } = detect();
+
+function allowedBrowser() {
+    // chrome on Mac OS
+    if (
+        browserOS === 'Mac OS' &&
+        browserName === 'chrome' &&
+        parseFloat(browserVersion) > 74
+    )
+        return true;
+
+    // chrome on Linux
+    if (
+        browserOS === 'Linux' &&
+        browserName === 'chrome' &&
+        parseFloat(browserVersion) > 74
+    )
+        return true;
+
+    return false;
+}
 
 ReactDOM.render(
-    name === 'chrome' && os === 'Mac OS' ? (
+    allowedBrowser() ? (
         <IotpProvider>
             <ThingyProvider>
                 <App />
             </ThingyProvider>
         </IotpProvider>
     ) : (
-        <div style={{marginTop: 50, marginLeft: 50 }}>
-            Sorry, "{name}" on "{os}" is an unsupported browser.
+        <div style={{ marginTop: 50, marginLeft: 50 }}>
+            Sorry, "{browserName}" (${browserVersion}) on "{browserOS}" is an
+            unsupported browser.
             <br />
+            Your browsers doesn't support WebBLE
             <br />
             <br />
             Please use a recent version of{' '}
-            <a href="https://www.google.com/chrome/">Chrome</a>{' '} on MacOS.
+            <a href="https://www.google.com/chrome/">Chrome</a> on MacOS.
         </div>
     ),
     document.getElementById('root')

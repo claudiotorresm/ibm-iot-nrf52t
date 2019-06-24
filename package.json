@@ -24,7 +24,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "scss-dev": "rm -rf ./@carbon ; rsync -r -m ./node_modules/@carbon ./ --include '*.scss' --exclude='LICENSE' --exclude '*.*'",
-    "push-it": "rm -rf ./build && react-scripts build && cf push"
+    "push-it": "rm -rf ./build && react-scripts build && ibmcloud cf push"
   },
   "eslintConfig": {
     "extends": "react-app"
