@@ -28,6 +28,22 @@ function allowedBrowser() {
     )
         return true;
 
+    // chrome on Windows 10
+    if (
+        browserOS === 'Windows 10' &&
+        browserName === 'chrome' &&
+        parseFloat(browserVersion) > 74
+    )
+        return true;
+
+    // chrome on Android
+    if (
+        browserOS === 'Android OS' &&
+        browserName === 'chrome' /* &&
+        parseFloat(browserVersion.substring(1)) > 74 */
+    )
+        return true;
+
     return false;
 }
 
@@ -43,11 +59,16 @@ ReactDOM.render(
             Sorry, "{browserName}" (${browserVersion}) on "{browserOS}" is an
             unsupported browser.
             <br />
-            Your browsers doesn't support WebBLE
+            Your browsers doesn't appear to support{' '}
+            <a href="https://github.com/WebBluetoothCG/web-bluetooth/blob/master/implementation-status.md">
+                WebBlooth
+            </a>
+            .
             <br />
             <br />
             Please use a recent version of{' '}
-            <a href="https://www.google.com/chrome/">Chrome</a> on MacOS.
+            <a href="https://www.google.com/chrome/">Chrome</a> on
+            MacOS / Windows10 / Linux / Android.
         </div>
     ),
     document.getElementById('root')
