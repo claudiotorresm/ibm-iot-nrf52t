@@ -37,13 +37,9 @@ function allowedBrowser() {
         return true;
 
     // chrome on Android
-    if (
-        browserOS === 'Android OS' &&
-        browserName === 'chrome' /* &&
-        parseFloat(browserVersion.substring(1)) > 74 */
-    )
-        return true;
+    if (browserOS === 'Android OS' && browserName === 'chrome') return true;
 
+    // no matching browser found...
     return false;
 }
 
@@ -67,8 +63,8 @@ ReactDOM.render(
             <br />
             <br />
             Please use a recent version of{' '}
-            <a href="https://www.google.com/chrome/">Chrome</a> on
-            MacOS / Windows10 / Linux / Android.
+            <a href="https://www.google.com/chrome/">Chrome</a> on MacOS /
+            Windows10 / Linux / Android.
         </div>
     ),
     document.getElementById('root')
